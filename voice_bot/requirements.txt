@@ -1,0 +1,7 @@
+aiogram
+vosk
+ollama
+pydub
+supabase
+streamlit
+python-dotenv

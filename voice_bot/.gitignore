@@ -1,0 +1,10 @@
+cat <<EOF > .gitignore
+venv/
+model/
+temp_audio/
+.env
+__pycache__/
+*.ogg
+*.wav
+notes.db
+EOF
