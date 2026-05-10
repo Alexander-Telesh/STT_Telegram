@@ -1,108 +1,124 @@
-# 🚀 Инструкция по развертыванию Smart Voice Notes
+# Smart Voice Notes: Deployment Guide
 
-Система для создания интеллектуальных заметок из голосовых сообщений. 
-**Стек:** Telegram (aiogram), Vosk (STT), Gemma 2 9b (Ollama), Supabase (DB/Storage), Streamlit (Web).
+Сервис для создания структурированных заметок из голосовых сообщений Telegram.
 
-## 📋 Требования к системе
-- **ОС:** Linux (Ubuntu рекомендуемо), macOS или Windows.
-- **RAM:** Минимум 16 ГБ (Gemma 2 9b требует ~10 ГБ, Vosk ~2 ГБ).
-- **Библиотеки:** Установленный `FFmpeg` в системе.
+Стек проекта:
+- Telegram Bot (`aiogram`)
+- Speech-to-Text (`vosk`, `pydub`, `ffmpeg`)
+- LLM-анализ (`ollama`, модель `gemma2:9b`)
+- Хранение (`supabase`: DB + Storage)
+- Веб-интерфейс (`streamlit`)
 
-## 🛠 Шаг 1: Установка системных зависимостей
+## 1) Системные требования
 
-### Linux (Ubuntu):
+- ОС: Linux / macOS / Windows
+- RAM: от 16 GB (для локальной работы `gemma2:9b`)
+- Установленный `ffmpeg`
+- Python 3.10+
+- Установленный и запущенный `ollama`
+
+## 2) Установка зависимостей
+
+### Linux (Ubuntu)
+
 ```bash
 sudo apt update
-sudo apt install ffmpeg python3-venv wget unzip
+sudo apt install -y ffmpeg python3-venv wget unzip
+```
 
-macOS:
-code Bash
+### macOS
 
+```bash
 brew install ffmpeg
+```
 
-📦 Шаг 2: Настройка проекта и окружения
+### Python-окружение
 
-    Клонируйте репозиторий и создайте виртуальное окружение:
-
-code Bash
-
+```bash
 python3 -m venv venv
 source venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
+```
 
-    Создайте файл .env в корне проекта и заполните его:
+## 3) Настройка конфигурации
 
-code Env
+Сейчас проект читает настройки напрямую из `config.py`.
+Перед запуском обязательно проверьте и укажите корректные значения:
 
-BOT_TOKEN=ваш_токен_телеграм
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=your-anon-key
+- `BOT_TOKEN`
+- `SUPABASE_URL`
+- `SUPABASE_KEY`
+- `VOSK_MODEL_PATH` (по умолчанию `model`)
+- `LLM_MODEL` (по умолчанию `gemma2:9b`)
 
-🎙 Шаг 3: Установка моделей
-Vosk (STT):
+## 4) Установка моделей
 
-Скачайте большую русскую модель и распакуйте её в папку model:
-code Bash
+### Vosk (русская модель)
 
+```bash
 wget https://alphacephei.com/vosk/models/vosk-model-ru-0.42.zip
 unzip vosk-model-ru-0.42.zip
 mv vosk-model-ru-0.42 model
 rm vosk-model-ru-0.42.zip
+```
 
-Ollama (LLM):
+### Ollama (LLM)
 
-Установите Ollama и скачайте модель:
-code Bash
-
+```bash
 ollama pull gemma2:9b
+```
 
-☁️ Шаг 4: Настройка Supabase
+Убедитесь, что сервис Ollama запущен и доступен локально.
 
-    SQL Editor: Создайте таблицу notes:
+## 5) Настройка Supabase
 
-code SQL
+### 5.1 Таблица `notes`
 
-CREATE TABLE notes (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id bigint NOT NULL,
+Выполните SQL в Supabase SQL Editor:
+
+```sql
+create table if not exists notes (
+  id uuid default gen_random_uuid() primary key,
+  user_id bigint not null,
   title text,
   raw_text text,
   summary text,
   tags text[],
   file_url text,
-  is_favorite boolean DEFAULT false,
-  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+  is_favorite boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now())
 );
-ALTER TABLE notes DISABLE ROW LEVEL SECURITY;
+```
 
-    Storage: Создайте публичный бакет с именем voice-notes.
+### 5.2 Storage bucket
 
-🏃 Шаг 5: Запуск
+Создайте публичный bucket с именем `voice-notes`.
 
-Для полноценной работы нужно запустить два процесса в разных терминалах:
+## 6) Запуск приложения
 
-    Запуск бота:
+Нужно запустить два процесса в разных терминалах.
 
-code Bash
+### 6.1 Telegram-бот
 
+```bash
+source venv/bin/activate
 python bot.py
+```
 
-    Запуск веб-интерфейса:
+### 6.2 Web UI (Streamlit)
 
-code Bash
-
+```bash
+source venv/bin/activate
 streamlit run webapp.py
+```
 
-📁 Структура проекта
+После сохранения заметки бот отправит ссылку вида:
 
-    bot.py — Интерфейс Telegram и координация сервисов.
+`http://localhost:8501/?u=<telegram_user_id>`
 
-    webapp.py — Веб-интерфейс на Streamlit.
+## 7) Быстрая диагностика
 
-    database.py — Слой работы с Supabase (Storage & DB).
-
-    stt_service.py — Обработка аудио и распознавание (Vosk).
-
-    llm_service.py — Анализ и суммаризация (Gemma 2 9b).
-
-    config.py — Загрузка настроек из .env.
+- Если не распознается речь: проверьте `ffmpeg` и наличие модели в `model/`.
+- Если не работает анализ: проверьте `ollama` и наличие модели `gemma2:9b`.
+- Если нет сохранения заметок: проверьте `SUPABASE_URL`, `SUPABASE_KEY`, таблицу `notes` и bucket `voice-notes`.
